@@ -8,6 +8,7 @@ const {ObjectID} = require('mongodb');
 const {mongoose} = require('./db/mongoose');
 const {Todo} = require('./models/todo.js');
 const {User} = require('./models/user.js');
+const {authenticate} = require('./middleware/authenticate')
 
 const port = process.env.PORT;
 var app = express();
@@ -119,6 +120,12 @@ app.post('/users', (request, response) => {
         response.status(500).send(error);
     });
 });
+
+// using middleware 'Authentication' in this route:
+app.get('/users/me', authenticate, (req, res) => {
+    res.send(req.user);
+});
+
 
 app.listen(port, () => {
     console.log(`Started on port ${port}`);
