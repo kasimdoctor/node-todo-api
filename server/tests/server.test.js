@@ -4,21 +4,12 @@ const {ObjectID} = require('mongodb');
 
 const {app} = require('./../server');
 const {Todo} = require('./../models/todo');
+const {User} = require('./../models/user');
 
-const dummyTodos = [{
-    _id: new ObjectID(),
-    text: 'First dummy todo'
-}, {
-    _id: new ObjectID(),
-    text: 'Second dummy todo'
-}];
+const {dummyTodos, populateTodos, dummyUsers, populateUsers} = require('./seed/seed');
 
-beforeEach((done) => {
-    // Good example of Promise chaining!
-    Todo.remove({}).then(() => {
-        return Todo.insertMany(dummyTodos);
-    }).then((docs) => done());
-});
+beforeEach(populateUsers);
+beforeEach(populateTodos);
 
 describe('POST /todos', () => {
     it('Should create a new TODO', (done) => {
@@ -141,5 +132,88 @@ describe('DELETE /todos/:id', () => {
             .delete(`/todos/123`)
             .expect(404)
             .end(done);
+    });
+});
+
+describe('GET /users/me', () => {
+    it('Should return a user if authenticated', (done) => {
+        request(app)
+            .get('/users/me')
+            // setting a header using supertest
+            .set('x-auth', dummyUsers[0].tokens[0].token)
+            .expect(200)
+            .expect((res) => {
+                expect(res.body._id).toBe(dummyUsers[0]._id.toHexString());
+                expect(res.body.email).toBe(dummyUsers[0].email);
+            })
+            .end(done);
+    });
+
+    it('Should return a 401 if NOT authenticated', (done) => {
+        request(app)
+            .get('/users/me')
+            .expect(401)
+            .expect((res) => {
+                expect(res.body).toEqual({});
+            })
+            .end(done);
+    });
+});
+
+describe('POST /users', () => {
+    it('Should create a USER', (done) => {
+        var email = 'example@example.com';
+        var password = '123qwerty';
+        
+        request(app)
+            .post('/users')
+            .send({email, password})
+            .expect(200)
+            .expect((res) => {
+                expect(res.headers['x-auth']).toExist();
+                expect(res.body._id).toExist();
+                expect(res.body.email).toBe(email);
+            })
+            .end((err) => {
+                if (err) {
+                    return done(err);
+                }
+
+                User.findOne({email}).then((user) => {
+                    expect(user).toExist();
+                    // since password should be hashed, they are no longer equal
+                    expect(user.password).toNotBe(password);
+                    done();
+                });
+            });
+    });
+
+    it('Should return validation errors if request invalid', (done) => {
+        // using invalid email and password
+        var email = 'example@.com';
+        var password = '123';
+
+        request(app)
+            .post('/users')
+            .send({email, password})
+            .expect(500)
+            .end(done);
+    });
+
+    it('Should not create user if email already used', (done) => {
+         request(app)
+            .post('/users')
+            .send({
+                email: dummyUsers[0].email, 
+                password: dummyUsers[0].password
+            })
+            .expect(500)
+            .end((err, res) => {
+                User.find().then((users) => {
+                    // check if there are still 2 users from test dummy data
+                    expect(users.length).toBe(2);
+                    done();
+                }).catch((error) => done(error));
+            });
     });
 });
