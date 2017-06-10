@@ -26,11 +26,7 @@ const dummyUsers = [{
 }, {
     _id: userIdTwo,
     email: 'guddu@kabachhu.com',
-    password: 'userTwoPass',
-    tokens: [{
-        access: 'auth',
-        token: jwt.sign({_id: userIdTwo, access: 'auth'}, 'abc123').toString()
-    }]
+    password: 'userTwoPass'
 }];
 
 const populateTodos = (done) => {
